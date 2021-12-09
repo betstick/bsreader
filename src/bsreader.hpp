@@ -36,7 +36,7 @@ class BSReader
         fread(buffer,bufferSize,1,file);
     };
 
-    void bsread(void* dest, size_t size)
+    void read(void* dest, size_t size)
     {
         //uint64_t bufferStart = offset;
         //uint64_t bufferEnd = offset + bufferSize;
@@ -49,13 +49,19 @@ class BSReader
         //targetStart MUST be positive, so never have to rewind!
         //targetStart CANNOT be greater than bufferSize! 
 
-        //check that targetStart is within the buffer. if prior, rewind
-        //the offset and start over.
-
-        while(position + size > offset + bufferSize)
+        //if target is within buffer
+        if(position + size < offset + bufferSize)
         {
-            //go forward by bufferSize
-            //recalc 
+            uint64_t relativePos = offset > 0 ? position - offset : position;
+            memcpy(dest,&buffer[relativePos],size);
+            position += size;
+
+            if(position >= offset + bufferSize)
+                bufferSet();
+        }
+        else //target DOES NOT end within the buffer
+        {
+
         }
     };
 
@@ -64,17 +70,11 @@ class BSReader
         //calculate what buffer is needed to be loaded
         position = positionAdjust + origin;
 
-        //new pos higher than buffer
-        if(position > offset + bufferSize)
+        //pos not within current buffer
+        if(position > offset + bufferSize || position < offset)
         {
             //because ints, this eliminates remainders.
             //there's probably a math function to do this.
-            offset = (position / bufferSize) * bufferSize;
-        }
-        //new pos lower than buffer
-        else if(position < offset)
-        {
-            //i guess this works for both conditions?
             offset = (position / bufferSize) * bufferSize;
         }
         else
@@ -82,7 +82,7 @@ class BSReader
             //if new pos is inside the current buffer do nothing
         }
 
-        bufferSet();
+        bufferSet(); //fill buffer based on new offset
     };
 
     private:

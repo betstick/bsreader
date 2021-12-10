@@ -13,7 +13,6 @@ worry about other than allocating it when you create the
 reader instance. it'll handle buffer management to speed
 up reads and prevent some disk thrashing.
 */
-//enum location = {SEEK_CUR};
 
 class BSReader
 {
@@ -45,39 +44,23 @@ class BSReader
         bufferSize = size;
 		buffer = reinterpret_cast <char *>(bufferPtr);
         fread(buffer,bufferSize,1,file);
-		//printf("BSReader object initialized:%i\n",rand());
     };
 
     void read(void* dest, size_t size)
     {
-        //uint64_t bufferStart = offset;
-        //uint64_t bufferEnd = offset + bufferSize;
-
-        //uint64_t targetStart = position;
-        //uint64_t targetEnd = position + size;
-
-        //uint64_t relativePos = offset > 0 ? position - offset : position;
-
-        //targetStart MUST be positive, so never have to rewind!
-        //targetStart CANNOT be greater than bufferSize! 
-
 		uint64_t relativePos = offset > 0 ? position - offset : position;
-		//printf("relativePos initialized:%i\n",rand());
 
         //if target is within buffer
         if(position + size < offset + bufferSize)
         {
             memcpy(dest,buffer+relativePos,size);
             position += size;
-			//printf("memcpy worked, %i\n", rand());
-			//printf("memcpy initialized relpos: %i\n",relativePos);
 
             if(position >= offset + bufferSize)
                 bufferSet();
         }
         else //target DOES NOT end within the buffer
         {
-			//printf("request outside buffer! read size: %i\t\t%i\n",size,rand());
 			int64_t overflow = (position + size) - (offset + bufferSize);
 			int64_t early = size - overflow;
 			memcpy(dest,buffer+relativePos,early);
@@ -97,12 +80,6 @@ class BSReader
             //because ints, this eliminates remainders.
             //there's probably a math function to do this.
             offset = (position / bufferSize) * bufferSize;
-			//printf("Set offset to:%i",offset);
-        }
-        else
-        {
-			//printf("no adjust needed Pos: %i\t Ofst: %i\n",position,offset);
-            //if new pos is inside the current buffer do nothing
         }
 
         bufferSet(); //fill buffer based on new offset
@@ -114,15 +91,6 @@ class BSReader
 	};
 
     private:
-
-    //this may not be needed?
-    //move the buffer n times the buffer size
-    void bufferAdjust(int64_t adjustment)
-    {
-        offset += adjustment * bufferSize; //modify first
-        fseek(file,offset,SEEK_SET);
-        fread(buffer,bufferSize,1,file); //fill buffer
-    };
 
     //refills buffer based on offset
     void bufferSet()

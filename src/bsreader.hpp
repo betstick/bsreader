@@ -49,10 +49,11 @@ class BSReader
         //targetStart MUST be positive, so never have to rewind!
         //targetStart CANNOT be greater than bufferSize! 
 
+		uint64_t relativePos = offset > 0 ? position - offset : position;
+
         //if target is within buffer
         if(position + size < offset + bufferSize)
         {
-            uint64_t relativePos = offset > 0 ? position - offset : position;
             memcpy(dest,&buffer[relativePos],size);
             position += size;
 
@@ -61,7 +62,11 @@ class BSReader
         }
         else //target DOES NOT end within the buffer
         {
-
+			int64_t overflow = (position + size) - (offset + bufferSize);
+			int64_t early = size - overflow;
+			memcpy(dest,&buffer[relativePos],early);
+			seek(bufferSize+offset,0);
+			memcpy(dest,&buffer[early],overflow)
         }
     };
 

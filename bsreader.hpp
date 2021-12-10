@@ -52,22 +52,23 @@ class BSReader
 			throw std::runtime_error("target larger than buffer!");
 			
 		uint64_t relativePos = offset > 0 ? position - offset : position;
+		int64_t bufferEnd = offset + bufferSize; //end byte of buffer
+		int64_t overflow = (position + size) - bufferEnd;
 
         //if target is within buffer
-        if(position + size < offset + bufferSize)
+		if(overflow > 0) //thefifthmatt figured this out. very clever
         {
             memcpy(dest,buffer+relativePos,size);
             position += size;
 
-            if(position >= offset + bufferSize)
+            if(position >= bufferEnd)
                 bufferSet();
         }
         else //target DOES NOT end within the buffer
         {
-			int64_t overflow = (position + size) - (offset + bufferSize);
 			int64_t early = size - overflow;
 			memcpy(dest,buffer+relativePos,early);
-			seek(bufferSize+offset,0);
+			seek(bufferEnd,0);
 			memcpy(dest,buffer+early,overflow);
         }
     };
@@ -89,9 +90,8 @@ class BSReader
     };
 
     private:
-
-    //refills buffer based on offset
-    void bufferSet()
+    
+    void bufferSet() //refills buffer based on offset
     {
         fseek(file,offset,SEEK_SET);
         fread(buffer,bufferSize,1,file);

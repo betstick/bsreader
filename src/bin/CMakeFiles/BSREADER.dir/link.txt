@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/BSREADER.dir/test.cpp.o -o release/BSREADER 

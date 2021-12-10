@@ -1,5 +1,11 @@
 #pragma once
-#include "common/stdafx.hpp"
+//#include "common/stdafx.hpp"
+#include <stdint.h>
+#include <cstdlib>
+#include <stdio.h>
+#include <cstring>
+#include <string>
+#include <stdexcept>
 
 /*
 This reader is designed to function similarly to the fread()
@@ -8,7 +14,7 @@ worry about other than allocating it when you create the
 reader instance. it'll handle buffer management to speed
 up reads and prevent some disk thrashing.
 */
-enum location = {SEEK_CUR};
+//enum location = {SEEK_CUR};
 
 class BSReader
 {
@@ -27,13 +33,20 @@ class BSReader
 
     public:
 
-    BSReader(std::string filePath, char* buffer, size_t size)
+    BSReader(std::string filePath, void* bufferPtr, size_t size)
     {
-        file = fopen64(filePath.c_str(),"br");
+        file = fopen(filePath.c_str(),"rb");
+
+		if(file == NULL)
+			throw std::runtime_error("no file");
+
         //TODO: get filesize, needed for sanity checks
         position = 0;
+		offset = 0;
         bufferSize = size;
+		buffer = reinterpret_cast <char *>(bufferPtr);
         fread(buffer,bufferSize,1,file);
+		//printf("BSReader object initialized:%i\n",rand());
     };
 
     void read(void* dest, size_t size)
@@ -50,23 +63,27 @@ class BSReader
         //targetStart CANNOT be greater than bufferSize! 
 
 		uint64_t relativePos = offset > 0 ? position - offset : position;
+		//printf("relativePos initialized:%i\n",rand());
 
         //if target is within buffer
         if(position + size < offset + bufferSize)
         {
-            memcpy(dest,&buffer[relativePos],size);
+            memcpy(dest,buffer+relativePos,size);
             position += size;
+			//printf("memcpy worked, %i\n", rand());
+			//printf("memcpy initialized relpos: %i\n",relativePos);
 
             if(position >= offset + bufferSize)
                 bufferSet();
         }
         else //target DOES NOT end within the buffer
         {
+			//printf("request outside buffer! read size: %i\t\t%i\n",size,rand());
 			int64_t overflow = (position + size) - (offset + bufferSize);
 			int64_t early = size - overflow;
-			memcpy(dest,&buffer[relativePos],early);
+			memcpy(dest,buffer+relativePos,early);
 			seek(bufferSize+offset,0);
-			memcpy(dest,&buffer[early],overflow)
+			memcpy(dest,buffer+early,overflow);
         }
     };
 
@@ -76,19 +93,26 @@ class BSReader
         position = positionAdjust + origin;
 
         //pos not within current buffer
-        if(position > offset + bufferSize || position < offset)
+        if(position >= offset + bufferSize || position < offset)
         {
             //because ints, this eliminates remainders.
             //there's probably a math function to do this.
             offset = (position / bufferSize) * bufferSize;
+			//printf("Set offset to:%i",offset);
         }
         else
         {
+			//printf("no adjust needed Pos: %i\t Ofst: %i\n",position,offset);
             //if new pos is inside the current buffer do nothing
         }
 
         bufferSet(); //fill buffer based on new offset
     };
+	
+	void debug()
+	{
+		printf("Pos: %i\tBuffSize: %i,\tOffset: %i\n",position,bufferSize,offset);
+	};
 
     private:
 

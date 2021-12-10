@@ -48,6 +48,9 @@ class BSReader
 
     void read(void* dest, size_t size)
     {
+		if(size > bufferSize)
+			throw std::runtime_error("target larger than buffer!");
+			
 		uint64_t relativePos = offset > 0 ? position - offset : position;
 
         //if target is within buffer

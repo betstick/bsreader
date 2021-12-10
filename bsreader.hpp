@@ -56,7 +56,7 @@ class BSReader
 		int64_t overflow = (position + size) - bufferEnd;
 
         //if target is within buffer
-		if(overflow > 0) //thefifthmatt figured this out. very clever
+		if(overflow < 0) //thefifthmatt figured this out. very clever
         {
             memcpy(dest,buffer+relativePos,size);
             position += size;

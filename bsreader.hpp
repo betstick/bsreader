@@ -87,11 +87,6 @@ class BSReader
 
         bufferSet(); //fill buffer based on new offset
     };
-	
-	void debug()
-	{
-		printf("Pos: %i\tBuffSize: %i,\tOffset: %i\n",position,bufferSize,offset);
-	};
 
     private:
 

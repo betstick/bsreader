@@ -22,11 +22,11 @@ class BSReader
     //just use 0 for SEEK_SET
 
     private:
-    uint64_t offset = 0; //buffer position relative to file
+    uint64_t offset = 0; //buffer start position relative to file
     
     FILE* file;
 
-    char* buffer;
+    char* buffer; //ptr to arbitrarily sized buffer
     uint64_t bufferSize;
 
     public:
@@ -48,8 +48,8 @@ class BSReader
 
     void read(void* dest, size_t size)
     {
-		if(size > bufferSize)
-			throw std::runtime_error("target larger than buffer!");
+		if(size > bufferSize || size < 0)
+			throw std::runtime_error("invalid target size!");
 			
 		uint64_t relativePos = offset > 0 ? position - offset : position;
 		int64_t bufferEnd = offset + bufferSize; //end byte of buffer
@@ -73,7 +73,7 @@ class BSReader
         }
     };
 
-    void seek(int64_t positionAdjust, uint64_t origin)
+    void seek(int64_t positionAdjust, int64_t origin)
     {
         //calculate what buffer is needed to be loaded
         position = positionAdjust + origin;
@@ -94,6 +94,7 @@ class BSReader
     void bufferSet() //refills buffer based on offset
     {
         fseek(file,offset,SEEK_SET);
-        fread(buffer,bufferSize,1,file);
+        if(fread(buffer,bufferSize,1,file)==0)
+			throw std::runtime_error("EOF");
     };
 };

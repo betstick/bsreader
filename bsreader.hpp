@@ -31,7 +31,9 @@ class BSReader
 
     public:
 
-    BSReader(std::string filePath, void* bufferPtr, size_t size)
+	BSReader(){}; //needed a default that did nothing :/
+
+    BSReader(std::string filePath, void* bufferPtr, size_t buffSize)
     {
         file = fopen(filePath.c_str(),"rb");
 
@@ -41,7 +43,7 @@ class BSReader
         //TODO: get filesize, needed for sanity checks
         position = 0;
 		offset = 0;
-        bufferSize = size;
+        bufferSize = buffSize;
 		buffer = reinterpret_cast <char *>(bufferPtr);
         fread(buffer,bufferSize,1,file);
     };

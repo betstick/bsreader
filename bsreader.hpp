@@ -50,8 +50,15 @@ class BSReader
 
     void read(void* dest, size_t size)
     {
-		if(size > bufferSize || size < 0)
-			throw std::runtime_error("invalid target size!");
+		if(size < 0)
+			
+			throw std::runtime_error("invalid target size!\n");
+		if(size > bufferSize)// || size < 0)
+		{	
+			//TODO: add support for going over the buffer size!
+			printf("size was: %i\n",size);
+			throw std::runtime_error("ADD SUPPORT FOR GOIGN OVER!!!!!\n");
+		}
 			
 		uint64_t relativePos = offset > 0 ? position - offset : position;
 		int64_t bufferEnd = offset + bufferSize; //end byte of buffer

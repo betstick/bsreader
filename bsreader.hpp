@@ -5,6 +5,7 @@
 #include <cstring>
 #include <string>
 #include <stdexcept>
+#include <bits/stdc++.h> //is this standard?
 
 /*
 This reader is designed to function similarly to the fread()
@@ -27,7 +28,10 @@ class BSReader
     FILE* file;
 
     char* buffer; //ptr to arbitrarily sized buffer
-    uint64_t bufferSize;
+    uint64_t bufferSize; //size of said buffer
+
+	//for step in/step out functionality
+	std::queue<uint64_t> stepStack[64]; //queue to allow nested steps
 
     public:
 
@@ -50,66 +54,73 @@ class BSReader
     };
 
 	//uses an internal buffer, pointless, don't delete, might want later
-	/*BSReader(std::string filePath, size_t buffSize)
+	BSReader(std::string filePath, size_t buffSize)
 	{
 		file = fopen(filePath.c_str(),"rb");
 
 		if(file == NULL)
 			throw std::runtime_error("no file");
 
-		buffer = (char*)malloc(buffSize);
+		buffer = new char[buffSize];
 
 		position = 0;
 		offset = 0;
 		bufferSize = buffSize;
 
 		fread(buffer,bufferSize,1,file);
-	};*/
+	};
 
     void read(void* dest, size_t size)
     {
+#ifndef BLEED //these checks are not strictly needed, good code won't need them.
+		//out of bounds position
 		if(position > fileSize)
 			throw std::runtime_error("position larger than file!\n");
 
+		//size is negative
 		if(size < 0)
 			throw std::runtime_error("invalid target size!\n");
+#endif
 
-		if(size > bufferSize)// || size < 0)
-		{	
-			//TODO: add support for going over the buffer size!
-			printf("size was: %i\n",size);
-			throw std::runtime_error("ADD SUPPORT FOR GOIGN OVER!!!!!\n");
+		//if size is greater than the buffer size
+		if(size > bufferSize)
+		{
+			//more janky int math, division rounds down
+			uint64_t chunks = size / bufferSize; //how many buffer sizes needed
+			uint64_t remainder = size - (chunks * bufferSize); //amount of data left over
+
+			for(uint64_t i = 0; i < chunks; i++)
+			{
+				read(&dest+(i*bufferSize),bufferSize);
+			}
+
+			//read the remainder onto end if needed
+			if(remainder != 0)
+				read(&dest+(chunks*bufferSize),remainder);
 		}
-			
-		uint64_t relativePos = offset > 0 ? position - offset : position;
-		int64_t bufferEnd = offset + bufferSize; //end byte of buffer
-		int64_t overflow = (position + size) - bufferEnd;
+		else
+		{
+			uint64_t relativePos = offset > 0 ? position - offset : position;
+			int64_t bufferEnd = offset + bufferSize; //end byte of buffer
+			int64_t overflow = (position + size) - bufferEnd;
 
-        //if target is within buffer
-		if(overflow < 0) //thefifthmatt figured this out. very clever
-        {
-			/*if((offset + bufferSize) + ((position + size)-offset + bufferSize) == position)
-				throw std::runtime_error("its the bug\n");*/
-			//sometimes causes segfaults,
-			//not caused by position convergence
-			printf(
-				"pos:%i+off:%i\trelPos:%i\tfSize:%i\toflow:%i\tbuffEnd:%i\n",
-				position,offset,relativePos,fileSize,overflow,bufferEnd
-			);
-			printf("src:%i\n",buffer+relativePos);
-            memcpy(dest,buffer+relativePos,size);
-            position += size;
+			//if target is within buffer
+			if(overflow < 0) //thefifthmatt figured this out. very clever
+			{
+				memcpy(dest,buffer+relativePos,size);
+				position += size;
 
-            if(position >= bufferEnd)
-                bufferSet();
-        }
-        else //target DOES NOT end within the buffer
-        {
-			int64_t early = size - overflow;
-			memcpy(dest,buffer+relativePos,early);
-			seek(bufferEnd,0);
-			memcpy(dest,buffer+early,overflow);
-        }
+				if(position >= bufferEnd)
+					bufferSet();
+			}
+			else //target DOES NOT end within the buffer
+			{
+				int64_t early = size - overflow;
+				memcpy(dest,buffer+relativePos,early);
+				seek(bufferEnd,0);
+				memcpy(dest,buffer+early,overflow);
+			}
+		}
     };
 
     void seek(uint64_t positionAdjust, int64_t origin)
@@ -135,6 +146,18 @@ class BSReader
 		rewind(file);
 		
 		printf("Filesize: %i bytes\n",fileSize);
+	};
+
+	void stepIn(uint64_t targetPosition)
+	{
+		stepStack->push(position);
+		seek(targetPosition,0);
+	};
+
+	void stepOut()
+	{
+		seek(stepStack->front(),0);
+		stepStack->pop();
 	};
 
     private:

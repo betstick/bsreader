@@ -10,9 +10,24 @@
 /*
 This reader is designed to function similarly to the fread()
 function but with a backend buffer that you don't need to
-worry about other than allocating it when you create the
-reader instance. it'll handle buffer management to speed
-up reads and prevent some disk thrashing.
+worry about. It'll handle buffer management to speed up 
+reads and prevent some disk thrashing.
+
+Recommended buffer size is around 4096 bytes. You can use more
+if you want, but I'm not sure if it'll help or hurt.
+
+Calling stepout() without having stepped in is undefined
+behaviour. Don't do it if you value your sanity.
+
+Unless otherwise specified all sizes are in bytes.
+
+Buffer is kept private since touching it is dangerous. It is
+supposed to be read from and only filled from the original
+file. So writing to it isn't needed. Also no real reason to
+read directly from it.
+
+Use fileSize member as a "SEEK_END" for the seek method.
+Use 0 as a "SEEK_SET" and position as "SEEK_CUR".
 */
 
 class BSReader
@@ -23,51 +38,44 @@ class BSReader
     //just use 0 for SEEK_SET
 
     private:
-    uint64_t offset = 0; //buffer start position relative to file
+    uint64_t offset = 0; //buffer start position relative to file in bytes
     
     FILE* file;
 
     char* buffer; //ptr to arbitrarily sized buffer
-    uint64_t bufferSize; //size of said buffer
+    uint64_t bufferSize; //size of said buffer in bytes
 
-	//for step in/step out functionality
-	std::queue<uint64_t> stepStack[64]; //queue to allow nested steps
+	//queue to allow nested stepin/stepouts 
+	std::queue<uint64_t> stepStack[64]; 
 
     public:
 
-	BSReader(){}; //needed a default that did nothing :/
+	BSReader::BSReader(){}; //needed a default that did nothing :/
 
-	//use for higher level stuff i guess like the real time reader?
-    BSReader(std::string filePath, void* bufferPtr, size_t buffSize)
-    {
-        file = fopen(filePath.c_str(),"rb");
-
-		if(file == NULL)
-			throw std::runtime_error("no file");
-
-		getSize(); //sets the filesize
-        position = 0;
-		offset = 0;
-        bufferSize = buffSize;
-		buffer = reinterpret_cast <char *>(bufferPtr);
-        fread(buffer,bufferSize,1,file);
-    };
-
-	//uses an internal buffer, pointless, don't delete, might want later
-	BSReader(std::string filePath, size_t buffSize)
+	//uses an internal buffer to be safe.
+	BSReader::BSReader(std::string filePath, size_t buffSize)
 	{
 		file = fopen(filePath.c_str(),"rb");
 
 		if(file == NULL)
 			throw std::runtime_error("no file");
 
-		buffer = new char[buffSize];
+		buffer = new char[buffSize]; //throw buffer onto heap
 
+		//init values
+		getSize();
 		position = 0;
 		offset = 0;
 		bufferSize = buffSize;
 
+		//initial buffer fill
 		fread(buffer,bufferSize,1,file);
+	};
+
+	//destructor, needed cause we mess with the heap!
+	BSReader::~BSReader()
+	{
+		delete[] buffer;
 	};
 
     void read(void* dest, size_t size)
@@ -77,9 +85,9 @@ class BSReader
 		if(position > fileSize)
 			throw std::runtime_error("position larger than file!\n");
 
-		//size is negative
-		if(size < 0)
-			throw std::runtime_error("invalid target size!\n");
+		//size is negative, shouldn't be possible?
+		/*if(size < 0)
+			throw std::runtime_error("invalid target size!\n");*/
 #endif
 
 		//if size is greater than the buffer size
@@ -139,15 +147,6 @@ class BSReader
         bufferSet(); //fill buffer based on new offset
     };
 
-	void getSize()
-	{
-		fseek(file,0,SEEK_END);
-		fileSize = ftell(file);
-		rewind(file);
-		
-		printf("Filesize: %i bytes\n",fileSize);
-	};
-
 	void stepIn(uint64_t targetPosition)
 	{
 		stepStack->push(position);
@@ -162,6 +161,15 @@ class BSReader
 
     private:
     
+	void getSize()
+	{
+		fseek(file,0,SEEK_END);
+		fileSize = ftell(file);
+		rewind(file);
+		
+		printf("Filesize: %i bytes\n",fileSize);
+	};
+
     void bufferSet() //refills buffer based on offset
     {
 #ifdef DEBUG

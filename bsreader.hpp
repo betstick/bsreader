@@ -50,10 +50,10 @@ class BSReader
 
     public:
 
-	BSReader::BSReader(){}; //needed a default that did nothing :/
+	BSReader(){}; //needed a default that did nothing :/
 
 	//uses an internal buffer to be safe.
-	BSReader::BSReader(std::string filePath, size_t buffSize)
+	BSReader(std::string filePath, size_t buffSize)
 	{
 		file = fopen(filePath.c_str(),"rb");
 
@@ -73,7 +73,7 @@ class BSReader
 	};
 
 	//destructor, needed cause we mess with the heap!
-	BSReader::~BSReader()
+	~BSReader()
 	{
 		delete[] buffer;
 	};

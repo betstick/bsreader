@@ -12,14 +12,15 @@ class BSReader
 	private:
 	FILE* file;
 	char* buffer;
-	uint64_t bufferSize;
-	uint64_t bufferPos;
+	uint64_t bufferSize = 0;
+	uint64_t bufferPos = 0;
+	uint64_t writeOffset = 0;
 
 	std::queue<uint64_t> stepStack[64]; 
 
     public:
-	uint64_t fileSize;
-	uint64_t readPos;
+	uint64_t fileSize = 0;
+	uint64_t readPos = 0;
 
 	BSReader(){};
 
@@ -32,6 +33,7 @@ class BSReader
 
 		bufferSize = bufferSizeIn;
 		buffer = new char[bufferSize];
+		bufferAutoAdjust();
 	};
 
 	~BSReader()
@@ -47,6 +49,7 @@ class BSReader
 		uint64_t startSize = readIsTooBig ? (bufferPos+bufferSize) - readPos : readSize;
 		memcpy(dest,buffer+(readPos-bufferPos),startSize);
 		readPos += startSize;
+		writeOffset = startSize;
 		bufferAutoAdjust();
 		
 		if(readIsTooBig)
@@ -55,8 +58,9 @@ class BSReader
 
 			for(int i = 0; i < fullReads; i++)
 			{
-				memcpy(dest+readPos-bufferPos,buffer+(readPos-bufferPos),bufferSize);
+				memcpy(dest+writeOffset,buffer+(readPos-bufferPos),bufferSize);
 				readPos += bufferSize;
+				writeOffset += bufferSize;
 				bufferAutoAdjust();
 			}
 
@@ -64,7 +68,7 @@ class BSReader
 
 			if(remainder > 0)
 			{
-				memcpy(dest+readPos-bufferPos,buffer+(readPos-bufferPos),remainder);
+				memcpy(dest+writeOffset,buffer+(readPos-bufferPos),remainder);
 				readPos += remainder;
 				bufferAutoAdjust();
 			}
@@ -96,6 +100,7 @@ class BSReader
 		rewind(file);
 	};
 
+	public:
 	void stepIn(uint64_t targetPosition)
 	{
 		stepStack->push(readPos);
@@ -107,6 +112,12 @@ class BSReader
 	{
 		readPos = stepStack->front();
 		stepStack->pop();
+		bufferAutoAdjust();
+	};
+
+	void seek(uint64_t targetPosition)
+	{
+		readPos = targetPosition;
 		bufferAutoAdjust();
 	};
 };

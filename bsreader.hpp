@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <bits/stdc++.h> //is this standard?
 
+//Buffered file reader utility. Supercedes stdio reader.
 class BSReader
 {
 	private:
@@ -41,6 +42,7 @@ class BSReader
 		delete[] buffer;
 	};
 
+	//Copies readSize number of bytes to dest pointer.
 	void read(void* dest, uint64_t readSize)
 	{
 		//do first read, run second until not needed, if needed do third
@@ -76,6 +78,7 @@ class BSReader
 	};
 
 	private:
+	//Sets the correct buffer position in the file.
 	void setBufferPosition(uint64_t position)
 	{
 		bufferPos = position;
@@ -83,24 +86,29 @@ class BSReader
 		refillBuffer();
 	};
 
+	//Fills buffer based on position in file.
 	void refillBuffer()
 	{
 		fread(buffer,bufferSize,1,file);
 	};
 
+	//Calculates the correct buffer position.
 	void bufferAutoAdjust()
 	{
 		setBufferPosition((readPos / bufferSize) * bufferSize);
 	};
 
-	void getSize()
+	public:
+	//Returns size of file, also sets the member variable.
+	uint64_t getSize()
 	{
 		fseek(file,0,SEEK_END);
 		fileSize = ftell(file);
 		rewind(file);
+		return fileSize;
 	};
 
-	public:
+	//Place current read position in queue. Travel to target.
 	void stepIn(uint64_t targetPosition)
 	{
 		stepStack->push(readPos);
@@ -108,6 +116,7 @@ class BSReader
 		bufferAutoAdjust();
 	};
 
+	//Return to top of queue.
 	void stepOut()
 	{
 		readPos = stepStack->front();
@@ -115,6 +124,7 @@ class BSReader
 		bufferAutoAdjust();
 	};
 
+	//Travel to a specified offset in the file.
 	void seek(uint64_t targetPosition)
 	{
 		readPos = targetPosition;

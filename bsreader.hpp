@@ -45,10 +45,16 @@ class BSReader
 	//Copies readSize number of bytes to dest pointer.
 	void read(void* dest, uint64_t readSize)
 	{
-		//do first read, run second until not needed, if needed do third
+		//Design: a read can be broken into 3 distinct parts.
+		//Part 1 is within the current buffer and may or may not stretch to the end.
+		//Part 2 is the number of full buffer reads needed after the part 1.
+		//Part 3 is anything needed after 1 and 2 are finished.
+		//All reads will have part one, part 2 and 3 are dependent on read size.
 		bool readIsTooBig = (bufferPos + bufferSize) - readPos < readSize;
 
 		uint64_t startSize = readIsTooBig ? (bufferPos+bufferSize) - readPos : readSize;
+
+		//Initial read. May be incomplete and need subsequent reads.
 		memcpy(dest,buffer+(readPos-bufferPos),startSize);
 		readPos += startSize;
 		writeOffset = startSize;
@@ -60,6 +66,7 @@ class BSReader
 
 			for(int i = 0; i < fullReads; i++)
 			{
+				//Full buffer reads. Ran as many times as needed.
 				memcpy(dest+writeOffset,buffer+(readPos-bufferPos),bufferSize);
 				readPos += bufferSize;
 				writeOffset += bufferSize;
@@ -70,6 +77,7 @@ class BSReader
 
 			if(remainder > 0)
 			{
+				//Ending read.
 				memcpy(dest+writeOffset,buffer+(readPos-bufferPos),remainder);
 				readPos += remainder;
 				bufferAutoAdjust();

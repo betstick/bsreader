@@ -17,7 +17,8 @@ class BSReader
 	uint64_t bufferPos = 0;
 	uint64_t writeOffset = 0;
 
-	std::queue<uint64_t> stepStack[64]; 
+	std::queue<uint64_t> stepStack[64];
+	std::queue<uint64_t> markStack[64];
 
     public:
 	uint64_t fileSize = 0;
@@ -50,6 +51,8 @@ class BSReader
 		//Part 2 is the number of full buffer reads needed after the part 1.
 		//Part 3 is anything needed after 1 and 2 are finished.
 		//All reads will have part one, part 2 and 3 are dependent on read size.
+
+		//gets distance between end of buffer, and current read position
 		bool readIsTooBig = (bufferPos + bufferSize) - readPos < readSize;
 
 		uint64_t startSize = readIsTooBig ? (bufferPos+bufferSize) - readPos : readSize;
@@ -64,26 +67,33 @@ class BSReader
 		{
 			uint64_t fullReads = (readSize - startSize) / bufferSize;
 
-			for(int i = 0; i < fullReads; i++)
+			for(uint64_t i = 0; i < fullReads; i++)
 			{
 				//Full buffer reads. Ran as many times as needed.
-				memcpy(dest+writeOffset,buffer+(readPos-bufferPos),bufferSize);
+				memcpy((char*)dest+writeOffset,buffer+(readPos-bufferPos),bufferSize);
 				readPos += bufferSize;
 				writeOffset += bufferSize;
 				bufferAutoAdjust();
 			}
 
-			uint64_t remainder = fullReads * bufferSize + startSize - readSize;
+			//i knew how this line worked for 1.2 seconds. it does work though. trust me.
+			uint64_t remainder = (readSize - (fullReads * bufferSize)) - startSize;
 
 			if(remainder > 0)
 			{
 				//Ending read.
-				memcpy(dest+writeOffset,buffer+(readPos-bufferPos),remainder);
+				memcpy((char*)dest+writeOffset,buffer+(readPos-bufferPos),remainder);
 				readPos += remainder;
 				bufferAutoAdjust();
 			}
 		}
 	};
+
+	//Use this for custom type implementations.
+	/*template<typename T> void BSReader::read(T* ptr)
+	{
+		throw std::runtime_error("No implementation for type specified!\n");
+	};*/
 
 	private:
 	//Sets the correct buffer position in the file.
@@ -116,7 +126,7 @@ class BSReader
 		return fileSize;
 	};
 
-	//Place current read position in queue. Travel to target.
+	//Place current read position in step queue. Travel to target.
 	void stepIn(uint64_t targetPosition)
 	{
 		stepStack->push(readPos);
@@ -124,11 +134,25 @@ class BSReader
 		bufferAutoAdjust();
 	};
 
-	//Return to top of queue.
+	//Return to top of step queue.
 	void stepOut()
 	{
 		readPos = stepStack->front();
 		stepStack->pop();
+		bufferAutoAdjust();
+	};
+
+	//Place current read position in marker queue. Stays there.
+	void markPos()
+	{
+		markStack->push(readPos);
+	};
+
+	//Return to top of marker queue.
+	void returnToMark()
+	{
+		readPos = markStack->front();
+		markStack->pop();
 		bufferAutoAdjust();
 	};
 
@@ -137,5 +161,19 @@ class BSReader
 	{
 		readPos = targetPosition;
 		bufferAutoAdjust();
+	};
+
+	//Prints position in hex and bytes.
+	void printPos()
+	{
+		printf("Position: %lx\t%lu\n",readPos,readPos);
+	};
+
+	//Gives info useful for debugging purposes.
+	void debug()
+	{
+		printf("ReadPosition: %lx\t%lu\n",readPos,readPos);
+		printf("Buffer Start: %lx\t%lu\n",bufferPos,bufferPos);
+		printf("Buffer End: %lx\t%lu\n",bufferPos+bufferSize,bufferPos+bufferSize);
 	};
 };

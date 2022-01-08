@@ -6,6 +6,7 @@
 #include <string>
 #include <stdexcept>
 #include <bits/stdc++.h> //is this standard?
+#include <wchar.h> //needed for fmemopen
 
 //Buffered file reader utility. Supercedes stdio reader.
 //Pick one buffer size and stick with it. Switching files
@@ -23,20 +24,34 @@ class BSReader
 	std::queue<uint64_t> markStack[64];
 
     public:
+	bool isFile; //false means its memory
 	uint64_t fileSize = 0;
 	uint64_t readPos = 0;
 
 	BSReader(){};
 
-	BSReader(std::string filePath, uint64_t bufferSizeIn)
+	BSReader(std::string filePath, uint64_t bufferSize)
 	{
+		isFile = true;
 		file = fopen(filePath.c_str(),"rb");
 
 		if(file == NULL)
 			throw std::runtime_error("Failed to open file!\n");
 
-		bufferSize = bufferSizeIn;
+		this->bufferSize = bufferSize;
 		buffer = new char[bufferSize];
+		bufferAutoAdjust();
+	};
+
+	BSReader(void* buffer, size_t size)
+	{
+		isFile = false;
+		file = fmemopen(buffer,size,"rb");
+
+		if(file == NULL)
+			throw std::runtime_error("Failed to open memory!\n");
+	
+		this->bufferSize = 0;
 		bufferAutoAdjust();
 	};
 
@@ -46,7 +61,38 @@ class BSReader
 	};
 
 	//Don't use this. It's for testing '_>'
-	void open(std::string filePath, uint64_t bufferSizeIn)
+	void open(std::string filePath, uint64_t bufferSize)
+	{
+		cleanup();
+
+		isFile = true;
+
+		file = fopen(filePath.c_str(),"rb");
+
+		if(file == NULL)
+			throw std::runtime_error("Failed to open file!\n");
+
+		this->bufferSize = bufferSize;
+		buffer = new char[bufferSize];
+		bufferAutoAdjust();
+	};
+
+	void open(void* buffer, size_t size)
+	{
+		cleanup();
+
+		isFile = false;
+		file = fmemopen(buffer,size,"rb");
+
+		if(file == NULL)
+			throw std::runtime_error("Failed to open memory!\n");
+	
+		this->bufferSize = 0;
+		bufferAutoAdjust();
+	};
+
+	//reset values back to default
+	void cleanup()
 	{
 		//init back to zero
 		bufferPos = 0;
@@ -58,79 +104,73 @@ class BSReader
 			delete buffer;
 
 		//clear these out to prevent strange behavior
-
 		*stepStack = std::queue<uint64_t>();
 		*markStack = std::queue<uint64_t>();
-
-		file = fopen(filePath.c_str(),"rb");
-
-		if(file == NULL)
-			throw std::runtime_error("Failed to open file!\n");
-
-		bufferSize = bufferSizeIn;
-		buffer = new char[bufferSize];
-		bufferAutoAdjust();
 	};
 
 	//Copies readSize number of bytes to dest pointer.
 	void read(void* dest, uint64_t readSize)
 	{
-		//Design: a read can be broken into 3 distinct parts.
-		//Part 1 is within the current buffer and may or may not stretch to the end.
-		//Part 2 is the number of full buffer reads needed after the part 1.
-		//Part 3 is anything needed after 1 and 2 are finished.
-		//All reads will have part one, part 2 and 3 are dependent on read size.
-
-		//gets distance between end of buffer, and current read position
-		bool readIsTooBig = (bufferPos + bufferSize) - readPos < readSize;
-
-		uint64_t startSize = readIsTooBig ? (bufferPos+bufferSize) - readPos : readSize;
-
-		//Initial read. May be incomplete and need subsequent reads.
-		memcpy(dest,buffer+(readPos-bufferPos),startSize);
-		readPos += startSize;
-		writeOffset = startSize;
-		bufferAutoAdjust();
-		
-		if(readIsTooBig)
+		if(isFile)
 		{
-			uint64_t fullReads = (readSize - startSize) / bufferSize;
+			//Design: a read can be broken into 3 distinct parts.
+			//Part 1 is within the current buffer and may or may not stretch to the end.
+			//Part 2 is the number of full buffer reads needed after the part 1.
+			//Part 3 is anything needed after 1 and 2 are finished.
+			//All reads will have part one, part 2 and 3 are dependent on read size.
 
-			for(uint64_t i = 0; i < fullReads; i++)
+			//gets distance between end of buffer, and current read position
+			bool readIsTooBig = (bufferPos + bufferSize) - readPos < readSize;
+
+			uint64_t startSize = readIsTooBig ? (bufferPos+bufferSize) - readPos : readSize;
+
+			//Initial read. May be incomplete and need subsequent reads.
+			memcpy(dest,buffer+(readPos-bufferPos),startSize);
+			readPos += startSize;
+			writeOffset = startSize;
+			bufferAutoAdjust();
+			
+			if(readIsTooBig)
 			{
-				//Full buffer reads. Ran as many times as needed.
-				memcpy((char*)dest+writeOffset,buffer+(readPos-bufferPos),bufferSize);
-				readPos += bufferSize;
-				writeOffset += bufferSize;
-				bufferAutoAdjust();
-			}
+				uint64_t fullReads = (readSize - startSize) / bufferSize;
 
-			//i knew how this line worked for 1.2 seconds. it does work though. trust me.
-			uint64_t remainder = (readSize - (fullReads * bufferSize)) - startSize;
+				for(uint64_t i = 0; i < fullReads; i++)
+				{
+					//Full buffer reads. Ran as many times as needed.
+					memcpy((char*)dest+writeOffset,buffer+(readPos-bufferPos),bufferSize);
+					readPos += bufferSize;
+					writeOffset += bufferSize;
+					bufferAutoAdjust();
+				}
 
-			if(remainder > 0)
-			{
-				//Ending read.
-				memcpy((char*)dest+writeOffset,buffer+(readPos-bufferPos),remainder);
-				readPos += remainder;
-				bufferAutoAdjust();
+				//i knew how this line worked for 1.2 seconds. it does work though. trust me.
+				uint64_t remainder = (readSize - (fullReads * bufferSize)) - startSize;
+
+				if(remainder > 0)
+				{
+					//Ending read.
+					memcpy((char*)dest+writeOffset,buffer+(readPos-bufferPos),remainder);
+					readPos += remainder;
+					bufferAutoAdjust();
+				}
 			}
 		}
+		else
+		{
+			fread(dest,readSize,1,file);
+		}
 	};
-
-	//Use this for custom type implementations.
-	/*template<typename T> void BSReader::read(T* ptr)
-	{
-		throw std::runtime_error("No implementation for type specified!\n");
-	};*/
 
 	private:
 	//Sets the correct buffer position in the file.
 	void setBufferPosition(uint64_t position)
 	{
-		bufferPos = position;
-		fseek(file,bufferPos,SEEK_SET);
-		refillBuffer();
+		if(isFile)
+		{
+			bufferPos = position;
+			fseek(file,bufferPos,SEEK_SET);
+			refillBuffer();
+		}
 	};
 
 	//Fills buffer based on position in file.
@@ -143,6 +183,9 @@ class BSReader
 	void bufferAutoAdjust()
 	{
 		setBufferPosition((readPos / bufferSize) * bufferSize);
+		
+		if(!isFile)
+			fseek(file,readPos,SEEK_SET);
 	};
 
 	public:
@@ -185,10 +228,28 @@ class BSReader
 		bufferAutoAdjust();
 	};
 
-	//Travel to a specified offset in the file.
+	//Travel to a specified location in the file.
 	void seek(uint64_t targetPosition)
 	{
 		readPos = targetPosition;
+		bufferAutoAdjust();
+	};
+
+	//Unsupported, in progress. May segfault.
+	void seek(int64_t offset, int whence)
+	{
+		uint64_t position = 0;
+		switch(whence)
+		{
+			case 0:
+				position = (offset > 0 ? offset : 0);
+			case 1:
+				position = this->readPos + offset; break;
+			case 2:
+				position = this->fileSize + offset; break;
+		}
+
+		this->readPos = position;
 		bufferAutoAdjust();
 	};
 
@@ -203,6 +264,6 @@ class BSReader
 	{
 		printf("ReadPosition: %lx\t%lu\n",readPos,readPos);
 		printf("Buffer Start: %lx\t%lu\n",bufferPos,bufferPos);
-		printf("Buffer End: %lx\t%lu\n",bufferPos+bufferSize,bufferPos+bufferSize);
+		printf("Buffer End:   %lx\t%lu\n",bufferPos+bufferSize,bufferPos+bufferSize);
 	};
 };

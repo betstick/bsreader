@@ -58,8 +58,9 @@ class BSReader
 			delete buffer;
 
 		//clear these out to prevent strange behavior
-		stepStack->empty();
-		markStack->empty();
+
+		*stepStack = std::queue<uint64_t>();
+		*markStack = std::queue<uint64_t>();
 
 		file = fopen(filePath.c_str(),"rb");
 

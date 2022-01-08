@@ -8,6 +8,8 @@
 #include <bits/stdc++.h> //is this standard?
 
 //Buffered file reader utility. Supercedes stdio reader.
+//Pick one buffer size and stick with it. Switching files
+//and buffer sizes may cause strange behavior. I dunno.
 class BSReader
 {
 	private:
@@ -41,6 +43,32 @@ class BSReader
 	~BSReader()
 	{
 		delete[] buffer;
+	};
+
+	//Don't use this. It's for testing '_>'
+	void open(std::string filePath, uint64_t bufferSizeIn)
+	{
+		//init back to zero
+		bufferPos = 0;
+		writeOffset = 0;
+		readPos = 0;
+
+		//clear the buffer as well
+		if(buffer != NULL)
+			delete buffer;
+
+		//clear these out to prevent strange behavior
+		stepStack->empty();
+		markStack->empty();
+
+		file = fopen(filePath.c_str(),"rb");
+
+		if(file == NULL)
+			throw std::runtime_error("Failed to open file!\n");
+
+		bufferSize = bufferSizeIn;
+		buffer = new char[bufferSize];
+		bufferAutoAdjust();
 	};
 
 	//Copies readSize number of bytes to dest pointer.

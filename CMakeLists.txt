@@ -40,17 +40,29 @@ list(APPEND DIRS
 
 add_dir("${DIRS}")
 
-option(DEBUG "enable verbose stuff and GDB support" OFF)
+option(BUILD "enable verbose stuff and GDB support" OFF)
 
-if(DEBUG)
+if(BUILD STREQUAL "debug")
+	#enable GDB and disable all optimizations
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb -O0")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ggdb -O0")
+	#show all types of errors, but limit to 8 at a time
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror  -fmax-errors=8")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror  -fmax-errors=8")
+	#enable this for my debug code preprocessor stuff
 	add_compile_definitions(DEBUG)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ggdb")
-	message("Using debug mode...")
+	#needed to prevent VMA werror stuff from stopping compile.
+	add_compile_definitions(VMA_DEBUG_DETECT_CORRUPTION)
+	add_compile_definitions(VMA_DEBUG_MARGIN=1)
+	message(STATUS "Using debug mode...")
 else()
-	message("Using release...")
+	set(BUILD "release")
+	#optimize aggressively
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+	message(STATUS "Using release mode...")
 endif()
-unset(DEBUG CACHE)
+unset(BUILD CACHE)
 
 add_executable(${PROJECT_NAME} ${${PROJECT_NAME}__SOURCES} ${${PROJECT_NAME}__INCLUDES})
 

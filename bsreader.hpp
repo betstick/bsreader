@@ -23,6 +23,8 @@ class BSReader
 	std::queue<uint64_t> stepStack[64];
 	std::queue<uint64_t> markStack[64];
 
+	int32_t errorStatus = 0; //0 is none, -1 is EOF, -2 is unk.
+
     public:
 	bool isFile; //false means its memory
 	uint64_t fileSize = 0;
@@ -98,6 +100,7 @@ class BSReader
 		bufferPos = 0;
 		writeOffset = 0;
 		readPos = 0;
+		errorStatus = 0;
 
 		//clear the buffer as well
 		if(buffer != NULL)
@@ -108,8 +111,9 @@ class BSReader
 		*markStack = std::queue<uint64_t>();
 	};
 
-	//Copies readSize number of bytes to dest pointer.
-	void read(void* dest, uint64_t readSize)
+	//Copies readSize number of bytes to dest pointer. Mimics fread().
+	//Returns readSize on success. Does unsafe things on failure and returns 0.
+	int read(void* dest, uint64_t readSize)
 	{
 		if(isFile)
 		{
@@ -158,11 +162,22 @@ class BSReader
 		else
 		{
 			fread(dest,readSize,1,file);
+
+			if(feof(file) != 0)
+				this->errorStatus = -1;
+			if(ferror(file) != 0)
+				this->errorStatus = -2;
 		}
+
+		if(this->errorStatus == 0)
+			return readSize;
+		else
+			return 0;
 	};
 
 	private:
 	//Sets the correct buffer position in the file.
+	//Returns 0 on seccess, -1 on failure.
 	void setBufferPosition(uint64_t position)
 	{
 		if(isFile)
@@ -174,18 +189,32 @@ class BSReader
 	};
 
 	//Fills buffer based on position in file.
+	//0 on success, -1 on error.
 	void refillBuffer()
 	{
 		fread(buffer,bufferSize,1,file);
+
+		if(feof(file) != 0)
+			this->errorStatus = -1;
+		if(ferror(file) != 0)
+			this->errorStatus = -2;
 	};
 
 	//Calculates the correct buffer position.
+	//0 on success, -1 on error.
 	void bufferAutoAdjust()
 	{
 		setBufferPosition((readPos / bufferSize) * bufferSize);
-		
-		if(!isFile)
+
+		if(!isFile) //if its memory
+		{
 			fseek(file,readPos,SEEK_SET);
+			
+			if(feof(file) != 0)
+				this->errorStatus = -1;
+			if(ferror(file) != 0)
+				this->errorStatus = -2;
+		}
 	};
 
 	public:
@@ -195,6 +224,8 @@ class BSReader
 		fseek(file,0,SEEK_END);
 		fileSize = ftell(file);
 		rewind(file);
+		//put bufferpos back where it was :)
+		fseek(file,bufferPos,SEEK_SET);
 		return fileSize;
 	};
 
@@ -257,6 +288,12 @@ class BSReader
 	void printPos()
 	{
 		printf("Position: %lx\t%lu\n",readPos,readPos);
+	};
+
+	//Returns error status. 0 is none, -1 is EOF, -2 is ERROR.
+	int getErrorStatus()
+	{
+		return this->errorStatus;
 	};
 
 	//Gives info useful for debugging purposes.

@@ -68,7 +68,6 @@ class BSReader
 		cleanup();
 
 		isFile = true;
-
 		file = fopen(filePath.c_str(),"rb");
 
 		if(file == NULL)

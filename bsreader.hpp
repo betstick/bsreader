@@ -5,7 +5,7 @@
 #include <cstring>
 #include <string>
 #include <stdexcept>
-#include <bits/stdc++.h> //is this standard?
+#include <bits/stdc++.h> //is this standard? is it used?
 #include <wchar.h> //needed for fmemopen
 
 //Buffered file reader utility. Supercedes stdio reader.
@@ -204,7 +204,10 @@ class BSReader
 	//0 on success, -1 on error.
 	void bufferAutoAdjust()
 	{
-		setBufferPosition((readPos / bufferSize) * bufferSize);
+		if(bufferSize == 0)
+			setBufferPosition(0);
+		else
+			setBufferPosition((readPos / bufferSize) * bufferSize);
 
 		if(!isFile) //if its memory
 		{

@@ -161,6 +161,7 @@ class BSReader
 		else
 		{
 			fread(dest,readSize,1,file);
+			readPos+=readSize;
 
 			if(feof(file) != 0)
 				this->errorStatus = -1;

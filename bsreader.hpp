@@ -23,10 +23,10 @@ class BSReader
 	std::queue<uint64_t> stepStack[64];
 	std::queue<uint64_t> markStack[64];
 
-	int32_t errorStatus = 0; //0 is none, -1 is EOF, -2 is unk.
-
     public:
 	bool isFile; //false means its memory
+	bool eof = false;
+	bool err = false;
 	uint64_t fileSize = 0;
 	uint64_t readPos = 0;
 
@@ -49,6 +49,8 @@ class BSReader
 	{
 		isFile = false;
 		file = fmemopen(buffer,size,"rb");
+
+		this->fileSize = size;
 
 		if(file == NULL)
 			throw std::runtime_error("Failed to open memory!\n");
@@ -99,7 +101,10 @@ class BSReader
 		bufferPos = 0;
 		writeOffset = 0;
 		readPos = 0;
-		errorStatus = 0;
+		
+		//reset to having no errors
+		err = false;
+		eof = false;
 
 		//clear the buffer as well
 		if(buffer != NULL)
@@ -114,6 +119,12 @@ class BSReader
 	//Returns readSize on success. Does unsafe things on failure and returns 0.
 	int read(void* dest, uint64_t readSize)
 	{
+		//needed for emulation of fread() functionality
+		if(readSize + readPos > fileSize)
+		{
+			readSize = fileSize - readPos;
+			this->eof = true;
+		}
 		if(isFile)
 		{
 			//Design: a read can be broken into 3 distinct parts.
@@ -164,15 +175,12 @@ class BSReader
 			readPos+=readSize;
 
 			if(feof(file) != 0)
-				this->errorStatus = -1;
+				this->eof = true;
 			if(ferror(file) != 0)
-				this->errorStatus = -2;
+				this->err = true;
 		}
 
-		if(this->errorStatus == 0)
-			return readSize;
-		else
-			return 0;
+		return readSize;
 	};
 
 	private:
@@ -195,9 +203,9 @@ class BSReader
 		fread(buffer,bufferSize,1,file);
 
 		if(feof(file) != 0)
-			this->errorStatus = -1;
+			this->eof = true;
 		if(ferror(file) != 0)
-			this->errorStatus = -2;
+			this->err = true;
 	};
 
 	//Calculates the correct buffer position.
@@ -214,9 +222,9 @@ class BSReader
 			fseek(file,readPos,SEEK_SET);
 			
 			if(feof(file) != 0)
-				this->errorStatus = -1;
+				this->eof = true;
 			if(ferror(file) != 0)
-				this->errorStatus = -2;
+				this->err = true;
 		}
 	};
 
@@ -293,17 +301,11 @@ class BSReader
 		printf("Position: %lx\t%lu\n",readPos,readPos);
 	};
 
-	//Returns error status. 0 is none, -1 is EOF, -2 is ERROR.
-	int getErrorStatus()
-	{
-		return this->errorStatus;
-	};
-
 	//Gives info useful for debugging purposes.
 	void debug()
 	{
-		printf("ReadPosition: %lx\t%lu\n",readPos,readPos);
-		printf("Buffer Start: %lx\t%lu\n",bufferPos,bufferPos);
-		printf("Buffer End:   %lx\t%lu\n",bufferPos+bufferSize,bufferPos+bufferSize);
+		printf("Read Position: %lx\t%lu\n",readPos,readPos);
+		printf("Buffer Start:  %lx\t%lu\n",bufferPos,bufferPos);
+		printf("Buffer End:    %lx\t%lu\n",bufferPos+bufferSize,bufferPos+bufferSize);
 	};
 };

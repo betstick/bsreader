@@ -92,6 +92,8 @@ class BSReader
 		if(file == NULL)
 			throw std::runtime_error("Failed to open memory!\n");
 	
+		this->fileSize = size;
+
 		this->bufferSize = 0;
 		bufferAutoAdjust();
 	};
@@ -103,6 +105,7 @@ class BSReader
 		bufferPos = 0;
 		writeOffset = 0;
 		readPos = 0;
+		fileSize = 0;
 		
 		//reset to having no errors
 		err = false;
@@ -309,5 +312,7 @@ class BSReader
 		printf("Read Position: %lx\t%lu\n",readPos,readPos);
 		printf("Buffer Start:  %lx\t%lu\n",bufferPos,bufferPos);
 		printf("Buffer End:    %lx\t%lu\n",bufferPos+bufferSize,bufferPos+bufferSize);
+		printf("EOF:           %i\n",eof);
+		printf("ERR:           %i\n",err);
 	};
 };

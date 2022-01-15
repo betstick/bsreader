@@ -77,6 +77,8 @@ class BSReader
 		if(file == NULL)
 			throw std::runtime_error("Failed to open file!\n");
 
+		getSize();
+
 		this->bufferSize = bufferSize;
 		buffer = new char[bufferSize];
 		bufferAutoAdjust();
@@ -106,6 +108,7 @@ class BSReader
 		writeOffset = 0;
 		readPos = 0;
 		fileSize = 0;
+		bufferSize = 0;
 		
 		//reset to having no errors
 		err = false;
